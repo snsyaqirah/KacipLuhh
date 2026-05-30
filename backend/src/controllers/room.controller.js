@@ -4,10 +4,12 @@ import { z } from 'zod';
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   duration: z.coerce.number().int().positive(),
+  passcode: z.string().max(32).optional(),
 });
 
 const joinSchema = z.object({
   nickname: z.string().min(1).max(30),
+  passcode: z.string().max(32).optional(),
 });
 
 const extendSchema = z.object({
@@ -16,8 +18,8 @@ const extendSchema = z.object({
 
 export async function handleCreate(req, res, next) {
   try {
-    const { name, duration } = createSchema.parse(req.body);
-    const { roomId, slug, ownerToken } = await createRoom({ name, duration });
+    const { name, duration, passcode } = createSchema.parse(req.body);
+    const { roomId, slug, ownerToken } = await createRoom({ name, duration, passcode });
     res.status(201).json({ roomId, slug, ownerToken });
   } catch (err) {
     next(err);
@@ -36,8 +38,8 @@ export async function handleGet(req, res, next) {
 
 export async function handleJoin(req, res, next) {
   try {
-    const { nickname } = joinSchema.parse(req.body);
-    const { memberToken, room } = await joinRoom(req.params.id, nickname);
+    const { nickname, passcode } = joinSchema.parse(req.body);
+    const { memberToken, room } = await joinRoom(req.params.id, nickname, passcode);
     res.json({ memberToken, room });
   } catch (err) {
     next(err);

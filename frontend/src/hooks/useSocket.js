@@ -1,9 +1,15 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io } from 'socket.io-client';
 
-export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onExpiring, onDeleted }) {
+export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate }) {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
+
+  // Ref-based callbacks — always calls the LATEST version, fixing stale closure bug
+  const cb = useRef({});
+  useEffect(() => {
+    cb.current = { onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate };
+  });
 
   useEffect(() => {
     if (!roomId || !token) return;
@@ -18,15 +24,17 @@ export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onE
     socket.on('connect', () => {
       setConnected(true);
       socket.emit('room:join');
-      socket.emit('message:history');
     });
 
     socket.on('disconnect', () => setConnected(false));
-    socket.on('message:receive', onMessage);
-    socket.on('message:history', onHistory);
-    socket.on('presence:update', onPresence);
-    socket.on('room:expiring', onExpiring);
-    socket.on('room:deleted', onDeleted);
+    socket.on('message:receive', (d) => cb.current.onMessage?.(d));
+    socket.on('message:history', (d) => cb.current.onHistory?.(d));
+    socket.on('presence:update', (d) => cb.current.onPresence?.(d));
+    socket.on('room:expiring', (d) => cb.current.onExpiring?.(d));
+    socket.on('room:deleted', () => cb.current.onDeleted?.());
+    socket.on('typing:update', (d) => cb.current.onTyping?.(d));
+    socket.on('reaction:update', (d) => cb.current.onReaction?.(d));
+    socket.on('poll:update', (d) => cb.current.onPollUpdate?.(d));
 
     const ping = setInterval(() => {
       if (socket.connected) socket.emit('ping');
@@ -41,9 +49,29 @@ export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onE
     };
   }, [roomId, token]);
 
-  const sendMessage = useCallback((content) => {
-    socketRef.current?.emit('message:send', { content });
+  const sendMessage = useCallback((content, replyTo) => {
+    socketRef.current?.emit('message:send', { content, replyTo });
   }, []);
 
-  return { connected, sendMessage };
+  const requestHistory = useCallback(() => {
+    socketRef.current?.emit('message:history');
+  }, []);
+
+  const emitTyping = useCallback((isTyping) => {
+    socketRef.current?.emit(isTyping ? 'typing:start' : 'typing:stop');
+  }, []);
+
+  const addReaction = useCallback((msgId, emoji) => {
+    socketRef.current?.emit('reaction:toggle', { msgId, emoji });
+  }, []);
+
+  const votePoll = useCallback((pollId, optionId) => {
+    socketRef.current?.emit('poll:vote', { pollId, optionId });
+  }, []);
+
+  const createPoll = useCallback((encryptedContent, pollId, optionCount) => {
+    socketRef.current?.emit('poll:create', { encryptedContent, pollId, optionCount });
+  }, []);
+
+  return { connected, sendMessage, requestHistory, emitTyping, addReaction, votePoll, createPoll };
 }

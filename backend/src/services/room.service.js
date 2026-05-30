@@ -14,7 +14,11 @@ function appError(msg, status) {
   return Object.assign(new Error(msg), { status });
 }
 
-export async function createRoom({ name, duration }) {
+function hashPasscode(raw) {
+  return crypto.createHash('sha256').update(raw + (process.env.TOKEN_SECRET ?? '')).digest('hex');
+}
+
+export async function createRoom({ name, duration, passcode }) {
   const dur = Number(duration);
   if (!VALID_DURATIONS.includes(dur)) throw appError('Invalid duration', 400);
   if (dur > MAX_DURATION) throw appError('Duration exceeds limit', 400);
@@ -29,7 +33,7 @@ export async function createRoom({ name, duration }) {
 
   const ownerToken = generateToken({ roomId, role: 'owner' });
 
-  await redis.hset(`room:${roomId}`, {
+  const fields = {
     id: roomId,
     slug,
     name: cleanName,
@@ -37,7 +41,10 @@ export async function createRoom({ name, duration }) {
     created_at: now,
     status: 'active',
     duration_hours: dur,
-  });
+  };
+  if (passcode) fields.passcode_hash = hashPasscode(String(passcode).slice(0, 32));
+
+  await redis.hset(`room:${roomId}`, fields);
   await redis.expire(`room:${roomId}`, ttl);
 
   return { roomId, slug, ownerToken };
@@ -53,13 +60,20 @@ export async function getRoom(roomId) {
     expiresAt: Number(r.expires_at),
     createdAt: Number(r.created_at),
     status: r.status,
+    hasPasscode: !!r.passcode_hash,
   };
 }
 
-export async function joinRoom(roomId, nickname) {
+export async function joinRoom(roomId, nickname, passcode) {
   const room = await getRoom(roomId);
   if (!room) throw appError('Room not found', 404);
   if (room.status !== 'active') throw appError('Room is closed', 410);
+
+  const storedHash = await redis.hget(`room:${roomId}`, 'passcode_hash');
+  if (storedHash) {
+    if (!passcode) throw appError('Passcode required', 401);
+    if (hashPasscode(String(passcode)) !== storedHash) throw appError('Wrong passcode', 403);
+  }
 
   const cleanNick = sanitize(nickname);
   if (!cleanNick) throw appError('Nickname required', 400);
@@ -111,13 +125,14 @@ export async function closeRoom(roomId) {
   ]);
 }
 
-export async function addMessage(roomId, encryptedContent) {
+export async function addMessage(roomId, encryptedContent, sender) {
   const count = await redis.llen(`room:${roomId}:messages`);
   if (count >= MAX_MESSAGES) return false;
 
   const msg = JSON.stringify({
     id: crypto.randomUUID(),
     encrypted_content: encryptedContent,
+    sender,
     timestamp: Date.now(),
   });
 

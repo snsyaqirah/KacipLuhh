@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLang } from '../context/LangContext.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Input.jsx';
-import { joinRoom } from '../lib/api.js';
+import { joinRoom, getRoom } from '../lib/api.js';
 import { storage } from '../lib/token.js';
 import { importRoomKey } from '../lib/crypto.js';
 
@@ -12,11 +12,20 @@ export function JoinPage() {
   const navigate = useNavigate();
   const { t } = useLang();
   const [nickname, setNickname] = useState('');
+  const [passcode, setPasscode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasKey, setHasKey] = useState(false);
+  const [roomDead, setRoomDead] = useState(false);
+  const [roomInfo, setRoomInfo] = useState(null);
 
   useEffect(() => {
+    // check room status first
+    getRoom(roomId).then(r => {
+      if (!r || r.status !== 'active') setRoomDead(true);
+      else setRoomInfo(r);
+    }).catch(() => setRoomDead(true));
+
     const hash = window.location.hash;
     if (hash.startsWith('#k=')) {
       const raw = hash.slice(3);
@@ -34,7 +43,7 @@ export function JoinPage() {
     setLoading(true);
     setError('');
     try {
-      const { memberToken, room } = await joinRoom(roomId, nickname.trim());
+      const { memberToken, room } = await joinRoom(roomId, nickname.trim(), passcode || undefined);
       storage.setToken(roomId, memberToken);
       storage.setNickname(roomId, nickname.trim());
       navigate(`/${room.slug}/${roomId}`);
@@ -42,10 +51,23 @@ export function JoinPage() {
       const msg = err?.response?.data?.error;
       if (msg === 'Nickname already taken') setError(t('nicknameTaken'));
       else if (msg === 'Room not found') setError(t('roomNotFound'));
+      else if (msg === 'Passcode required' || msg === 'Wrong passcode') setError('Wrong passcode. Try again.');
       else setError(msg || 'Something went wrong.');
     } finally {
       setLoading(false);
     }
+  }
+
+  if (roomDead) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+        <div className="text-center space-y-4">
+          <p className="text-4xl">✌️</p>
+          <p className="text-lg font-semibold text-zinc-100">{t('roomExpired')}</p>
+          <a href="/" className="text-sm text-emerald-500 hover:underline">← {t('createRoom')}</a>
+        </div>
+      </div>
+    );
   }
 
   if (!hasKey) {
@@ -77,6 +99,16 @@ export function JoinPage() {
             autoFocus
             error={error}
           />
+          {roomInfo?.hasPasscode && (
+            <Input
+              label="🔒 Passcode"
+              type="text"
+              placeholder="Enter passcode"
+              value={passcode}
+              onChange={e => setPasscode(e.target.value)}
+              maxLength={32}
+            />
+          )}
           <Button type="submit" className="w-full" disabled={loading || !nickname.trim()}>
             {loading ? t('joining') : t('joinBtn')}
           </Button>

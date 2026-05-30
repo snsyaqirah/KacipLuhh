@@ -5,14 +5,14 @@ const api = axios.create({
   timeout: 10000,
 });
 
-export const createRoom = (name, duration) =>
-  api.post('/api/room', { name, duration }).then(r => r.data);
+export const createRoom = (name, duration, passcode) =>
+  api.post('/api/room', { name, duration, ...(passcode ? { passcode } : {}) }).then(r => r.data);
 
 export const getRoom = (roomId) =>
   api.get(`/api/room/${roomId}`).then(r => r.data);
 
-export const joinRoom = (roomId, nickname) =>
-  api.post(`/api/room/${roomId}/join`, { nickname }).then(r => r.data);
+export const joinRoom = (roomId, nickname, passcode) =>
+  api.post(`/api/room/${roomId}/join`, { nickname, ...(passcode ? { passcode } : {}) }).then(r => r.data);
 
 export const extendRoom = (roomId, hours, ownerToken) =>
   api.post(`/api/room/${roomId}/extend`, { hours }, {
@@ -26,3 +26,9 @@ export const closeRoom = (roomId, ownerToken) =>
 
 export const reportRoom = (roomId, reason) =>
   api.post(`/api/room/${roomId}/report`, { reason }).then(r => r.data);
+
+export const getAdminReports = (adminSecret) =>
+  api.get('/api/admin/reports', { headers: { 'x-admin-secret': adminSecret } }).then(r => r.data);
+
+export const adminCloseRoom = (roomId, adminSecret) =>
+  api.delete(`/api/admin/room/${roomId}`, { headers: { 'x-admin-secret': adminSecret } }).then(r => r.data);

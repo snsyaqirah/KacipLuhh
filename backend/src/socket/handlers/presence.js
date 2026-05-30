@@ -5,14 +5,21 @@ export function registerPresenceHandlers(io, socket) {
   socket.on('ping', async () => {
     if (!socket.session) return;
     const { roomId, jti } = socket.session;
-
     await updatePing(roomId, jti);
-
     const ttl = await redis.ttl(`room:${roomId}`);
     socket.emit('pong', { ttl });
+    if (ttl > 0 && ttl <= 600) socket.emit('room:expiring', { ttl });
+  });
 
-    if (ttl > 0 && ttl <= 600) {
-      socket.emit('room:expiring', { ttl });
-    }
+  socket.on('typing:start', () => {
+    if (!socket.session) return;
+    const { roomId, nickname, jti } = socket.session;
+    socket.to(roomId).emit('typing:update', { userId: jti, nickname, typing: true });
+  });
+
+  socket.on('typing:stop', () => {
+    if (!socket.session) return;
+    const { roomId, jti, nickname } = socket.session;
+    socket.to(roomId).emit('typing:update', { userId: jti, nickname, typing: false });
   });
 }

@@ -11,7 +11,7 @@ function formatCountdown(ms) {
   return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-export function RoomHeader({ room, onlineCount, isExpiring, roomId }) {
+export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUsers }) {
   const { t } = useLang();
   const [timeLeft, setTimeLeft] = useState(room ? room.expiresAt - Date.now() : 0);
   const ownerToken = storage.getOwnerToken(roomId);
@@ -31,24 +31,30 @@ export function RoomHeader({ room, onlineCount, isExpiring, roomId }) {
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
         <h1 className="font-semibold text-zinc-100 truncate">{room.name}</h1>
-        <span className="text-xs text-zinc-500 flex-shrink-0">{t('membersOnline', onlineCount)}</span>
       </div>
 
-      <div className="flex items-center gap-3 flex-shrink-0">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {isExpiring && (
-          <span className="text-xs text-amber-400 animate-pulse">{t('expiringWarning')}</span>
+          <span className="text-xs text-amber-400 animate-pulse hidden sm:inline">{t('expiringWarning')}</span>
         )}
         <div className={`font-mono text-sm tabular-nums ${timeLeft < 600000 ? 'text-amber-400' : 'text-zinc-400'}`}>
           {formatCountdown(timeLeft)}
         </div>
         {ownerToken && (
           <a
-            href={`/owner/${roomId}?token=${ownerToken}`}
+            href={`/owner/${roomId}`}
             className="text-xs px-2 py-1 rounded bg-zinc-800 text-emerald-400 hover:bg-zinc-700 transition-colors"
           >
             {t('ownerBadge')}
           </a>
         )}
+        {/* Mobile: show user list toggle */}
+        <button
+          onClick={onToggleUsers}
+          className="md:hidden flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200 transition-colors px-2 py-1 rounded bg-zinc-800"
+        >
+          👥 {onlineCount}
+        </button>
       </div>
     </header>
   );

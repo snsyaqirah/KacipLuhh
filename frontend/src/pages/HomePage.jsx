@@ -42,6 +42,8 @@ export function HomePage() {
   const { t } = useLang();
   const [name, setName] = useState('');
   const [duration, setDuration] = useState(24);
+  const [passcode, setPasscode] = useState('');
+  const [usePasscode, setUsePasscode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -53,7 +55,9 @@ export function HomePage() {
     setError('');
     try {
       const rawKey = await generateRoomKey();
-      const { roomId, slug, ownerToken } = await apiCreateRoom(name.trim(), duration);
+      const { roomId, slug, ownerToken } = await apiCreateRoom(
+        name.trim(), duration, usePasscode && passcode ? passcode : undefined
+      );
 
       storage.setKey(roomId, rawKey);
       storage.setOwnerToken(roomId, ownerToken);
@@ -104,6 +108,29 @@ export function HomePage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Optional passcode */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={usePasscode}
+                  onChange={e => setUsePasscode(e.target.checked)}
+                  className="accent-emerald-500"
+                />
+                <span className="text-sm text-zinc-300">🔒 Passcode (optional)</span>
+              </label>
+              {usePasscode && (
+                <input
+                  type="text"
+                  value={passcode}
+                  onChange={e => setPasscode(e.target.value)}
+                  placeholder="Set a passcode"
+                  maxLength={32}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={loading || !name.trim()}>
