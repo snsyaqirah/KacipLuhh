@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLang } from '../context/LangContext.jsx';
+import { useInstallPrompt } from '../hooks/useInstallPrompt.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Input.jsx';
 import { createRoom as apiCreateRoom } from '../lib/api.js';
@@ -41,6 +42,7 @@ function CopyField({ label, hint, value, warn }) {
 
 export function HomePage() {
   const { t } = useLang();
+  const { canInstall, install } = useInstallPrompt();
   const [name, setName] = useState('');
   const [duration, setDuration] = useState(24);
   const [passcode, setPasscode] = useState('');
@@ -209,6 +211,11 @@ export function HomePage() {
         <footer className="text-center space-x-4">
           <a href="/privacy" className="text-xs text-zinc-600 hover:text-zinc-400">{t('privacy')}</a>
           <a href="/terms" className="text-xs text-zinc-600 hover:text-zinc-400">{t('terms')}</a>
+          {canInstall && (
+            <button onClick={install} className="text-xs text-zinc-600 hover:text-zinc-400">
+              📲 Install App
+            </button>
+          )}
         </footer>
       </div>
     </div>
