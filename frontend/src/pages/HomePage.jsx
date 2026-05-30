@@ -5,6 +5,7 @@ import { Input } from '../components/ui/Input.jsx';
 import { createRoom as apiCreateRoom } from '../lib/api.js';
 import { generateRoomKey } from '../lib/crypto.js';
 import { storage } from '../lib/token.js';
+import { ACCENT_COLORS, DEFAULT_ACCENT } from '../lib/colors.js';
 
 const DURATIONS = [6, 12, 24, 48];
 
@@ -44,6 +45,8 @@ export function HomePage() {
   const [duration, setDuration] = useState(24);
   const [passcode, setPasscode] = useState('');
   const [usePasscode, setUsePasscode] = useState(false);
+  const [maxUsers, setMaxUsers] = useState('');
+  const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
@@ -56,7 +59,10 @@ export function HomePage() {
     try {
       const rawKey = await generateRoomKey();
       const { roomId, slug, ownerToken } = await apiCreateRoom(
-        name.trim(), duration, usePasscode && passcode ? passcode : undefined
+        name.trim(), duration,
+        usePasscode && passcode ? passcode : undefined,
+        maxUsers ? Number(maxUsers) : undefined,
+        accentColor,
       );
 
       storage.setKey(roomId, rawKey);
@@ -110,6 +116,23 @@ export function HomePage() {
               </div>
             </div>
 
+            {/* Accent color */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-300">Warna bilik</label>
+              <div className="flex gap-2">
+                {ACCENT_COLORS.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setAccentColor(c.id)}
+                    title={c.name}
+                    className={`w-7 h-7 rounded-full transition-all ${accentColor === c.id ? 'ring-2 ring-offset-2 ring-offset-zinc-900 scale-110' : 'opacity-60 hover:opacity-100'}`}
+                    style={{ background: c.hex, '--tw-ring-color': c.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Optional passcode */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -133,7 +156,23 @@ export function HomePage() {
               )}
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !name.trim()}>
+            {/* Max users */}
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-sm text-zinc-300">👥 Max users (optional)</span>
+              </label>
+              <input
+                type="number"
+                min="2" max="50"
+                value={maxUsers}
+                onChange={e => setMaxUsers(e.target.value)}
+                placeholder="No limit"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={loading || !name.trim()}
+              style={{ background: ACCENT_COLORS.find(c => c.id === accentColor)?.hex }}>
               {loading ? t('creating') : t('createBtn')}
             </Button>
           </form>

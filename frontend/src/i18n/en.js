@@ -24,7 +24,7 @@ export default {
   typeMessage: 'Type a message...',
   send: 'Send',
   roomExpired: 'Room is gone ✌️',
-  leaveRoom: 'Leave & Clear Data',
+  leaveRoom: 'Leave Group & Clear Data',
   reportRoom: 'Report Room',
   reportTitle: 'Report This Room',
   reportReason: 'Reason (optional)',

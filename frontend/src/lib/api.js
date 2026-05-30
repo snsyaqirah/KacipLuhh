@@ -5,8 +5,13 @@ const api = axios.create({
   timeout: 10000,
 });
 
-export const createRoom = (name, duration, passcode) =>
-  api.post('/api/room', { name, duration, ...(passcode ? { passcode } : {}) }).then(r => r.data);
+export const createRoom = (name, duration, passcode, maxUsers, accentColor) =>
+  api.post('/api/room', {
+    name, duration,
+    ...(passcode ? { passcode } : {}),
+    ...(maxUsers ? { maxUsers } : {}),
+    ...(accentColor ? { accentColor } : {}),
+  }).then(r => r.data);
 
 export const getRoom = (roomId) =>
   api.get(`/api/room/${roomId}`).then(r => r.data);

@@ -18,7 +18,9 @@ function hashPasscode(raw) {
   return crypto.createHash('sha256').update(raw + (process.env.TOKEN_SECRET ?? '')).digest('hex');
 }
 
-export async function createRoom({ name, duration, passcode }) {
+const VALID_ACCENTS = ['emerald', 'blue', 'purple', 'orange', 'rose', 'amber'];
+
+export async function createRoom({ name, duration, passcode, maxUsers, accentColor }) {
   const dur = Number(duration);
   if (!VALID_DURATIONS.includes(dur)) throw appError('Invalid duration', 400);
   if (dur > MAX_DURATION) throw appError('Duration exceeds limit', 400);
@@ -34,15 +36,13 @@ export async function createRoom({ name, duration, passcode }) {
   const ownerToken = generateToken({ roomId, role: 'owner' });
 
   const fields = {
-    id: roomId,
-    slug,
-    name: cleanName,
+    id: roomId, slug, name: cleanName,
     expires_at: now + ttl * 1000,
-    created_at: now,
-    status: 'active',
-    duration_hours: dur,
+    created_at: now, status: 'active', duration_hours: dur,
+    accent_color: VALID_ACCENTS.includes(accentColor) ? accentColor : 'emerald',
   };
   if (passcode) fields.passcode_hash = hashPasscode(String(passcode).slice(0, 32));
+  if (maxUsers) fields.max_users = Math.min(Math.max(Number(maxUsers), 2), 50);
 
   await redis.hset(`room:${roomId}`, fields);
   await redis.expire(`room:${roomId}`, ttl);
@@ -54,13 +54,14 @@ export async function getRoom(roomId) {
   const r = await redis.hgetall(`room:${roomId}`);
   if (!r?.id) return null;
   return {
-    id: r.id,
-    slug: r.slug,
-    name: r.name,
+    id: r.id, slug: r.slug, name: r.name,
     expiresAt: Number(r.expires_at),
     createdAt: Number(r.created_at),
     status: r.status,
     hasPasscode: !!r.passcode_hash,
+    maxUsers: r.max_users ? Number(r.max_users) : null,
+    accentColor: r.accent_color || 'emerald',
+    pinnedMsgId: r.pinned_msg_id || null,
   };
 }
 
@@ -79,6 +80,14 @@ export async function joinRoom(roomId, nickname, passcode) {
   if (!cleanNick) throw appError('Nickname required', 400);
   if (cleanNick.length < 1 || cleanNick.length > 30) throw appError('Nickname must be 1–30 characters', 400);
 
+  if (room.maxUsers) {
+    const users = await redis.hgetall(`room:${roomId}:users`) || {};
+    const online = Object.values(users).filter(v => {
+      try { return JSON.parse(v).status === 'online'; } catch { return false; }
+    }).length;
+    if (online >= room.maxUsers) throw appError('Room is full', 403);
+  }
+
   const existing = await redis.hgetall(`room:${roomId}:users`);
   const taken = Object.values(existing || {}).some(v => {
     try { return JSON.parse(v).nickname === cleanNick; } catch { return false; }
@@ -87,6 +96,11 @@ export async function joinRoom(roomId, nickname, passcode) {
 
   const memberToken = generateToken({ roomId, role: 'member', nickname: cleanNick });
   return { memberToken, room };
+}
+
+export async function pinMessage(roomId, msgId) {
+  if (msgId) await redis.hset(`room:${roomId}`, 'pinned_msg_id', msgId);
+  else await redis.hdel(`room:${roomId}`, 'pinned_msg_id');
 }
 
 export async function extendRoom(roomId, hours) {

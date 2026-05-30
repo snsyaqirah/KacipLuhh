@@ -1,14 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io } from 'socket.io-client';
 
-export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate }) {
+export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate, onSystem, onPin, onKicked }) {
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
 
   // Ref-based callbacks — always calls the LATEST version, fixing stale closure bug
   const cb = useRef({});
   useEffect(() => {
-    cb.current = { onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate };
+    cb.current = { onMessage, onPresence, onHistory, onExpiring, onDeleted, onTyping, onReaction, onPollUpdate, onSystem, onPin, onKicked };
   });
 
   useEffect(() => {
@@ -35,6 +35,10 @@ export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onE
     socket.on('typing:update', (d) => cb.current.onTyping?.(d));
     socket.on('reaction:update', (d) => cb.current.onReaction?.(d));
     socket.on('poll:update', (d) => cb.current.onPollUpdate?.(d));
+    socket.on('poll:history', (polls) => polls.forEach(p => cb.current.onPollUpdate?.(p)));
+    socket.on('system:message', (d) => cb.current.onSystem?.(d));
+    socket.on('pin:update', (d) => cb.current.onPin?.(d));
+    socket.on('kicked', () => cb.current.onKicked?.());
 
     const ping = setInterval(() => {
       if (socket.connected) socket.emit('ping');
@@ -73,5 +77,13 @@ export function useSocket({ roomId, token, onMessage, onPresence, onHistory, onE
     socketRef.current?.emit('poll:create', { encryptedContent, pollId, optionCount });
   }, []);
 
-  return { connected, sendMessage, requestHistory, emitTyping, addReaction, votePoll, createPoll };
+  const pinMessage = useCallback((msgId) => {
+    socketRef.current?.emit('message:pin', { msgId });
+  }, []);
+
+  const kickUser = useCallback((nickname) => {
+    socketRef.current?.emit('user:kick', { nickname });
+  }, []);
+
+  return { connected, sendMessage, requestHistory, emitTyping, addReaction, votePoll, createPoll, pinMessage, kickUser };
 }

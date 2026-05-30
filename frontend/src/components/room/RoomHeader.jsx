@@ -11,7 +11,7 @@ function formatCountdown(ms) {
   return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUsers }) {
+export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUsers, accentHex = '#10b981' }) {
   const { t } = useLang();
   const [timeLeft, setTimeLeft] = useState(room ? room.expiresAt - Date.now() : 0);
   const ownerToken = storage.getOwnerToken(roomId);
@@ -29,7 +29,7 @@ export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUser
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: accentHex }} />
         <h1 className="font-semibold text-zinc-100 truncate">{room.name}</h1>
       </div>
 

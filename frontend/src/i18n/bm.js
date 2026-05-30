@@ -24,7 +24,7 @@ export default {
   typeMessage: 'Tulis mesej...',
   send: 'Hantar',
   roomExpired: 'Bilik dah hilang ✌️',
-  leaveRoom: 'Keluar & Padam Data',
+  leaveRoom: 'Keluar Kumpulan & Padam Data',
   reportRoom: 'Report Bilik',
   reportTitle: 'Report Bilik Ni',
   reportReason: 'Sebab (optional)',

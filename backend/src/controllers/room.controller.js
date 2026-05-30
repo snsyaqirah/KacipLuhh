@@ -1,10 +1,14 @@
 import { createRoom, getRoom, joinRoom, extendRoom, closeRoom } from '../services/room.service.js';
 import { z } from 'zod';
 
+const VALID_ACCENTS = ['emerald', 'blue', 'purple', 'orange', 'rose', 'amber'];
+
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   duration: z.coerce.number().int().positive(),
   passcode: z.string().max(32).optional(),
+  maxUsers: z.coerce.number().int().min(2).max(50).optional(),
+  accentColor: z.enum(VALID_ACCENTS).optional(),
 });
 
 const joinSchema = z.object({
@@ -18,8 +22,8 @@ const extendSchema = z.object({
 
 export async function handleCreate(req, res, next) {
   try {
-    const { name, duration, passcode } = createSchema.parse(req.body);
-    const { roomId, slug, ownerToken } = await createRoom({ name, duration, passcode });
+    const { name, duration, passcode, maxUsers, accentColor } = createSchema.parse(req.body);
+    const { roomId, slug, ownerToken } = await createRoom({ name, duration, passcode, maxUsers, accentColor });
     res.status(201).json({ roomId, slug, ownerToken });
   } catch (err) {
     next(err);

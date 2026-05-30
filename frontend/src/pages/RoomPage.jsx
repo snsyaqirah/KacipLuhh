@@ -13,7 +13,9 @@ import { CreatePollModal } from '../components/chat/CreatePollModal.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { storage } from '../lib/token.js';
 import { reportRoom, closeRoom } from '../lib/api.js';
-import { encryptMessage, decryptMessage, importRoomKey } from '../lib/crypto.js';
+import { encryptMessage, importRoomKey } from '../lib/crypto.js';
+import { sound } from '../lib/sound.js';
+import { getAccentHex } from '../lib/colors.js';
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 function Modal({ children, onClose }) {
@@ -36,9 +38,7 @@ function ConfirmModal({ title, message, confirmLabel, variant = 'secondary', loa
         <p className="text-sm text-zinc-400">{message}</p>
       </div>
       <div className="flex border-t border-zinc-800">
-        <button onClick={onClose} className="flex-1 py-3 text-sm text-zinc-400 hover:bg-zinc-800 transition-colors">
-          Batal
-        </button>
+        <button onClick={onClose} className="flex-1 py-3 text-sm text-zinc-400 hover:bg-zinc-800 transition-colors">Batal</button>
         <button onClick={onConfirm} disabled={loading}
           className={`flex-1 py-3 text-sm font-medium border-l border-zinc-800 transition-colors disabled:opacity-50
             ${variant === 'danger' ? 'text-red-400 hover:bg-red-950' : 'text-zinc-100 hover:bg-zinc-800'}`}>
@@ -53,20 +53,18 @@ function ReportModal({ roomId, onClose, t }) {
   const [reason, setReason] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e) {
+  async function submit(e) {
     e.preventDefault();
     setLoading(true);
     try { await reportRoom(roomId, reason); setSent(true); setTimeout(onClose, 2000); }
     finally { setLoading(false); }
   }
-
   return (
     <Modal onClose={onClose}>
       <div className="p-5 space-y-4">
         <h3 className="font-semibold text-zinc-100">{t('reportTitle')}</h3>
         {sent ? <p className="text-sm text-emerald-400 py-2">{t('reportSuccess')}</p> : (
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={submit} className="space-y-3">
             <textarea value={reason} onChange={e => setReason(e.target.value)}
               placeholder={t('reportReasonPlaceholder')} maxLength={500} rows={3}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none" />
@@ -84,13 +82,17 @@ function ReportModal({ roomId, onClose, t }) {
   );
 }
 
-function DeadRoom({ navigate, t }) {
+function DeadRoom({ navigate, t, reason }) {
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <div className="text-center space-y-4">
-        <p className="text-5xl">✌️</p>
-        <p className="text-xl font-semibold text-zinc-100">{t('roomExpired')}</p>
-        <p className="text-sm text-zinc-500">Semua mesej dah hilang.</p>
+        <p className="text-5xl">{reason === 'kicked' ? '🚫' : '✌️'}</p>
+        <p className="text-xl font-semibold text-zinc-100">
+          {reason === 'kicked' ? 'You were removed by the owner.' : t('roomExpired')}
+        </p>
+        <p className="text-sm text-zinc-500">
+          {reason === 'kicked' ? 'Contact the room owner if you think this was a mistake.' : 'Semua mesej dah hilang.'}
+        </p>
         <Button onClick={() => navigate('/')} variant="secondary">{t('createRoom')}</Button>
       </div>
     </div>
@@ -106,26 +108,32 @@ export function RoomPage() {
   const token = storage.getToken(roomId);
   const myNickname = storage.getNickname(roomId);
   const ownerToken = storage.getOwnerToken(roomId);
+  const isOwner = !!ownerToken;
 
   const { room, error: roomError, setRoom } = useRoom(roomId);
   const { keyReady, encrypt, decrypt } = useCrypto(roomId);
   const { users, onPresenceUpdate } = usePresence();
 
+  const accentHex = getAccentHex(room?.accentColor);
+
   const [messages, setMessages] = useState([]);
-  const [polls, setPolls] = useState({});         // { [pollId]: pollData }
-  const [typingUsers, setTypingUsers] = useState({});  // { [userId]: nickname }
-  const [reactions, setReactions] = useState({});     // { [msgId]: { [emoji]: userId[] } }
+  const [polls, setPolls] = useState({});
+  const [typingUsers, setTypingUsers] = useState({});
+  const [reactions, setReactions] = useState({});
   const [replyTo, setReplyTo] = useState(null);
+  const [pinnedMsgId, setPinnedMsgId] = useState(null);
   const [isExpiring, setIsExpiring] = useState(false);
   const [isDead, setIsDead] = useState(false);
+  const [deadReason, setDeadReason] = useState(null);
   const [showUsers, setShowUsers] = useState(false);
   const [modal, setModal] = useState(null);
   const [closing, setClosing] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
+  const [soundOn, setSoundOn] = useState(sound.isEnabled());
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const cryptoKeyRef = useRef(null);
 
-  // Keep a ref to the crypto key so poll encryption can access it directly
   useEffect(() => {
     if (keyReady) {
       const raw = storage.getKey(roomId);
@@ -133,9 +141,24 @@ export function RoomPage() {
     }
   }, [keyReady, roomId]);
 
+  // Sync pinned from room data on load
   useEffect(() => {
-    if (room && room.status !== 'active') setIsDead(true);
+    if (room?.pinnedMsgId) setPinnedMsgId(room.pinnedMsgId);
+    if (room?.status && room.status !== 'active') setIsDead(true);
   }, [room]);
+
+  // Tab title with unread count
+  useEffect(() => {
+    document.title = unreadCount > 0 ? `(${unreadCount}) KacipLuhh` : 'KacipLuhh';
+    return () => { document.title = 'KacipLuhh'; };
+  }, [unreadCount]);
+
+  // Reset unread when tab becomes visible
+  useEffect(() => {
+    function onVisible() { if (!document.hidden) setUnreadCount(0); }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   // Browser notification permission
   useEffect(() => {
@@ -145,28 +168,29 @@ export function RoomPage() {
   }, []);
 
   const onMessage = useCallback(async (msg) => {
-    if (msg.type === 'poll') {
-      setMessages(prev => [...prev, msg]);
-      return;
-    }
+    if (msg.type === 'poll') { setMessages(prev => [...prev, msg]); return; }
     try {
       const text = await decrypt(msg.content);
       const decoded = { ...msg, text };
       if (msg.replyTo?.id) {
-        // find original in state to get its text
         setMessages(prev => {
           const orig = prev.find(m => m.id === msg.replyTo.id);
           if (orig) decoded.replyTo = { ...msg.replyTo, sender: orig.sender, text: orig.text };
           return [...prev, decoded];
         });
-        return;
+      } else {
+        setMessages(prev => [...prev, decoded]);
       }
-      setMessages(prev => [...prev, decoded]);
 
-      // browser notification when tab hidden
-      if (document.hidden && Notification.permission === 'granted' && msg.sender !== myNickname) {
-        const n = new Notification('KacipLuhh 💬', { body: `${msg.sender}: new message`, icon: '/icon.png' });
-        n.onclick = () => window.focus();
+      if (msg.sender !== myNickname) {
+        sound.play();
+        if (document.hidden) {
+          setUnreadCount(n => n + 1);
+          if (Notification.permission === 'granted') {
+            const n = new Notification('KacipLuhh 💬', { body: `${msg.sender}: new message`, icon: '/icon.png' });
+            n.onclick = () => window.focus();
+          }
+        }
       }
     } catch {}
   }, [decrypt, myNickname]);
@@ -189,43 +213,56 @@ export function RoomPage() {
 
   const onDeleted = useCallback(() => {
     storage.clearRoom(roomId);
+    setDeadReason('expired');
+    setIsDead(true);
+  }, [roomId]);
+
+  const onKicked = useCallback(() => {
+    storage.clearRoom(roomId);
+    setDeadReason('kicked');
     setIsDead(true);
   }, [roomId]);
 
   const onTyping = useCallback(({ userId, nickname, typing }) => {
     setTypingUsers(prev => {
       const next = { ...prev };
-      if (typing) next[userId] = nickname;
-      else delete next[userId];
+      if (typing) next[userId] = nickname; else delete next[userId];
       return next;
     });
   }, []);
 
   const onReaction = useCallback(({ msgId, emoji, userId }) => {
     setReactions(prev => {
-      const msgReactions = { ...(prev[msgId] || {}) };
-      const uids = [...(msgReactions[emoji] || [])];
+      const msgR = { ...(prev[msgId] || {}) };
+      const uids = [...(msgR[emoji] || [])];
       const idx = uids.indexOf(userId);
       if (idx >= 0) uids.splice(idx, 1); else uids.push(userId);
-      msgReactions[emoji] = uids;
-      return { ...prev, [msgId]: msgReactions };
+      msgR[emoji] = uids;
+      return { ...prev, [msgId]: msgR };
     });
   }, []);
 
   const onPollUpdate = useCallback((poll) => {
-    setPolls(prev => ({ ...prev, [poll.id]: poll }));
+    setPolls(prev => ({ ...prev, [poll.id]: { ...poll, decryptedData: prev[poll.id]?.decryptedData } }));
   }, []);
 
-  const { connected, sendMessage, requestHistory, emitTyping, addReaction, votePoll, createPoll } = useSocket({
+  const onSystem = useCallback((msg) => {
+    setMessages(prev => [...prev, msg]);
+  }, []);
+
+  const onPin = useCallback(({ msgId }) => {
+    setPinnedMsgId(msgId);
+  }, []);
+
+  const handlePollDecrypted = useCallback((pollId, data) => {
+    setPolls(prev => ({ ...prev, [pollId]: { ...prev[pollId], decryptedData: data } }));
+  }, []);
+
+  const { connected, sendMessage, requestHistory, emitTyping, addReaction, votePoll, createPoll, pinMessage, kickUser } = useSocket({
     roomId, token,
     onMessage, onPresence: onPresenceUpdate, onHistory, onExpiring, onDeleted,
-    onTyping, onReaction, onPollUpdate,
+    onTyping, onReaction, onPollUpdate, onSystem, onPin, onKicked,
   });
-
-  // listen for poll history
-  useEffect(() => {
-    // handled via onPollUpdate called for each poll
-  }, []);
 
   useEffect(() => {
     if (connected && keyReady) requestHistory();
@@ -248,8 +285,13 @@ export function RoomPage() {
     createPoll(encrypted, pollId, options.length);
   }
 
-  async function handleVotePoll(pollId, optionId) {
-    votePoll(pollId, optionId);
+  function handlePin(msgId) {
+    pinMessage(msgId);
+    setPinnedMsgId(msgId);
+  }
+
+  function handleKick(nickname) {
+    if (window.confirm(`Remove "${nickname}" from the room?`)) kickUser(nickname);
   }
 
   function handleLeave() {
@@ -259,53 +301,50 @@ export function RoomPage() {
 
   async function handleCloseRoom() {
     setClosing(true);
-    try {
-      await closeRoom(roomId, ownerToken);
-      storage.clearRoom(roomId);
-      navigate('/');
-    } catch {} finally { setClosing(false); }
+    try { await closeRoom(roomId, ownerToken); storage.clearRoom(roomId); navigate('/'); }
+    catch {} finally { setClosing(false); }
   }
 
   useEffect(() => {
     if (!token || !myNickname) navigate(`/join/${roomId}`);
   }, [token, myNickname, roomId, navigate]);
 
-  if (isDead || roomError) return <DeadRoom navigate={navigate} t={t} />;
+  if (isDead || roomError) return <DeadRoom navigate={navigate} t={t} reason={deadReason} />;
 
   const onlineCount = users.filter(u => u.status === 'online').length;
   const typerNames = Object.values(typingUsers).filter(n => n !== myNickname);
-
-  // Merge reactions into messages
-  const enrichedMessages = messages.map(m => ({
-    ...m,
-    reactions: reactions[m.id] || {},
-  }));
-
-  // Decrypt poll data on the fly
-  const decryptedPolls = {};
-  Object.entries(polls).forEach(([id, poll]) => {
-    decryptedPolls[id] = { ...poll, decryptedData: null };
-  });
+  const pinnedMsg = pinnedMsgId ? messages.find(m => m.id === pinnedMsgId) : null;
+  const enrichedMessages = messages.map(m => ({ ...m, reactions: reactions[m.id] || {} }));
 
   return (
-    <div className="h-[100dvh] bg-zinc-950 flex flex-col">
+    <div className="h-[100dvh] bg-zinc-950 flex flex-col" style={{ '--accent': accentHex }}>
       <RoomHeader
         room={room}
         onlineCount={onlineCount}
         isExpiring={isExpiring}
         roomId={roomId}
         onToggleUsers={() => setShowUsers(v => !v)}
+        accentHex={accentHex}
       />
 
       <div className="flex-1 flex overflow-hidden">
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
+          {/* Action bar */}
+          <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
             <button onClick={() => setModal('report')}
               className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
               ⚑ {t('reportRoom')}
             </button>
             <div className="flex-1" />
-            {ownerToken && (
+            {/* Sound toggle */}
+            <button
+              onClick={() => setSoundOn(sound.toggle())}
+              className="text-base leading-none opacity-60 hover:opacity-100 transition-opacity"
+              title={soundOn ? 'Mute notifications' : 'Unmute notifications'}
+            >
+              {soundOn ? '🔔' : '🔕'}
+            </button>
+            {isOwner && (
               <button onClick={() => setModal('close')}
                 className="text-xs text-red-600 hover:text-red-400 transition-colors font-medium">
                 {t('closeRoom')}
@@ -317,15 +356,7 @@ export function RoomPage() {
             </button>
           </div>
 
-          <PollDecryptor
-            polls={polls}
-            decrypt={decrypt}
-            keyReady={keyReady}
-            onDecrypted={(pollId, data) => setPolls(prev => ({
-              ...prev,
-              [pollId]: { ...prev[pollId], decryptedData: data }
-            }))}
-          />
+          <PollDecryptor polls={polls} decrypt={decrypt} keyReady={keyReady} onDecrypted={handlePollDecrypted} />
 
           <ChatWindow
             messages={enrichedMessages}
@@ -334,7 +365,11 @@ export function RoomPage() {
             polls={polls}
             onReact={addReaction}
             onReply={setReplyTo}
-            onVote={handleVotePoll}
+            onVote={votePoll}
+            onPin={isOwner ? handlePin : null}
+            isOwner={isOwner}
+            pinnedMsg={pinnedMsg}
+            accentHex={accentHex}
           />
 
           <MessageInput
@@ -348,61 +383,51 @@ export function RoomPage() {
         </main>
 
         <div className="hidden md:flex">
-          <UserList users={users} myNickname={myNickname} />
+          <UserList users={users} myNickname={myNickname} isOwner={isOwner} onKick={handleKick} accentHex={accentHex} />
         </div>
       </div>
 
       {showUsers && (
         <div className="fixed inset-0 z-40 flex md:hidden" onClick={() => setShowUsers(false)}>
           <div className="flex-1 bg-black/60" />
-          <div onClick={e => e.stopPropagation()}><UserList users={users} myNickname={myNickname} /></div>
+          <div onClick={e => e.stopPropagation()}>
+            <UserList users={users} myNickname={myNickname} isOwner={isOwner} onKick={handleKick} accentHex={accentHex} />
+          </div>
         </div>
       )}
 
       {showPoll && <CreatePollModal onClose={() => setShowPoll(false)} onCreate={handleCreatePoll} />}
 
       {modal === 'leave' && (
-        <ConfirmModal
-          title="Leave Room"
-          message={ownerToken
-            ? "Leaving doesn't close the room. Others can still chat. To delete everything for everyone, tap 'Close Room' instead."
-            : "You'll be removed from this room on this device. The room continues for others."}
-          confirmLabel="Leave Room"
-          onConfirm={handleLeave}
-          onClose={() => setModal(null)}
-        />
+        <ConfirmModal title="Leave Room"
+          message={isOwner
+            ? `You're the owner. After leaving, nobody can extend or close this room — it will auto-delete when it expires. To hand over control first, transfer ownership via the user list. Or close the room now instead.`
+            : "You'll leave this room on this device. The room continues for others."}
+          confirmLabel="Leave anyway" onConfirm={handleLeave} onClose={() => setModal(null)} />
       )}
       {modal === 'close' && (
-        <ConfirmModal
-          title="Close Room"
-          message="This deletes all messages and disconnects everyone immediately. Cannot be undone."
-          confirmLabel="Close Room"
-          variant="danger"
-          loading={closing}
-          onConfirm={handleCloseRoom}
-          onClose={() => setModal(null)}
-        />
+        <ConfirmModal title="Close Room"
+          message="This deletes all messages and disconnects everyone. Cannot be undone."
+          confirmLabel="Close Room" variant="danger" loading={closing}
+          onConfirm={handleCloseRoom} onClose={() => setModal(null)} />
       )}
       {modal === 'report' && <ReportModal roomId={roomId} onClose={() => setModal(null)} t={t} />}
     </div>
   );
 }
 
-// Decrypt poll content as they arrive
 function PollDecryptor({ polls, decrypt, keyReady, onDecrypted }) {
-  const decrypted = useRef(new Set());
-
+  const done = useRef(new Set());
   useEffect(() => {
     if (!keyReady) return;
     Object.entries(polls).forEach(async ([pollId, poll]) => {
-      if (decrypted.current.has(pollId) || !poll.encrypted_content) return;
-      decrypted.current.add(pollId);
+      if (done.current.has(pollId) || !poll.encrypted_content) return;
+      done.current.add(pollId);
       try {
         const json = await decrypt(poll.encrypted_content);
         onDecrypted(pollId, JSON.parse(json));
       } catch {}
     });
   }, [polls, keyReady, decrypt, onDecrypted]);
-
   return null;
 }
