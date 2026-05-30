@@ -37,7 +37,7 @@ app.use('/api/admin', adminRoutes);
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
 app.use((err, _req, res, _next) => {
-  const status = err.status || err.errors ? 400 : 500;
+  const status = err.status ?? (err.errors ? 400 : 500);
   const message = err.status ? err.message : 'Something went wrong';
 
   if (!err.status) console.error('[error]', err);

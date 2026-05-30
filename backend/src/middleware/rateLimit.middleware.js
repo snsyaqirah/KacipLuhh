@@ -30,3 +30,10 @@ export const roomExtendLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
 });
+
+export const reportLimiter = rateLimit({
+  ...defaults,
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many reports. Try again later.' },
+});

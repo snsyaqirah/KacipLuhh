@@ -4,6 +4,13 @@ import { createPoll, votePoll, getPolls } from '../../services/poll.service.js';
 
 const MAX_CONTENT_LENGTH = 5000;
 const ALLOWED_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function safeReplyTo(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (typeof raw.id !== 'string' || !UUID_RE.test(raw.id)) return null;
+  return { id: raw.id }; // strip any extra fields
+}
 
 export function registerMessageHandlers(io, socket) {
   socket.on('message:send', async ({ content, replyTo }) => {
@@ -18,7 +25,7 @@ export function registerMessageHandlers(io, socket) {
       id: crypto.randomUUID(),
       sender: nickname,
       content,
-      replyTo: replyTo || null,
+      replyTo: safeReplyTo(replyTo),
       timestamp: Date.now(),
     });
   });
@@ -36,6 +43,7 @@ export function registerMessageHandlers(io, socket) {
 
   socket.on('reaction:toggle', ({ msgId, emoji }) => {
     if (!socket.session) return;
+    if (typeof msgId !== 'string' || !UUID_RE.test(msgId)) return;
     if (!ALLOWED_EMOJIS.includes(emoji)) return;
     const { roomId, jti: userId } = socket.session;
     io.to(roomId).emit('reaction:update', { msgId, emoji, userId });
@@ -44,6 +52,8 @@ export function registerMessageHandlers(io, socket) {
   socket.on('poll:create', async ({ encryptedContent, pollId, optionCount }) => {
     if (!socket.session) return;
     if (!pollId || !encryptedContent || !optionCount) return;
+    if (!UUID_RE.test(pollId)) return;
+    if (typeof encryptedContent !== 'string' || encryptedContent.length > MAX_CONTENT_LENGTH) return;
 
     const { roomId, nickname } = socket.session;
     const poll = await createPoll(roomId, { pollId, encryptedContent, optionCount });

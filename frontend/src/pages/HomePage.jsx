@@ -173,6 +173,13 @@ export function HomePage() {
               />
             </div>
 
+            <p className="text-xs text-zinc-600 text-center">
+              By creating a room, you agree to our{' '}
+              <a href="/terms" className="underline hover:text-zinc-400 transition-colors">Terms</a>
+              {' '}&amp;{' '}
+              <a href="/privacy" className="underline hover:text-zinc-400 transition-colors">Privacy Policy</a>.
+            </p>
+
             <Button type="submit" className="w-full" disabled={loading || !name.trim()}
               style={{ background: ACCENT_COLORS.find(c => c.id === accentColor)?.hex }}>
               {loading ? t('creating') : t('createBtn')}
