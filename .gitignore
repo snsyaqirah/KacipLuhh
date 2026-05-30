@@ -1,0 +1,44 @@
+# ─── Security docs — keep off GitHub ───────────────────────────────────────
+pre-security-checklist.md
+post-security-checklist.md
+
+# ─── Environment variables ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── Dependencies ────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Build outputs ───────────────────────────────────────────────────────────
+dist/
+build/
+.vite/
+**/dist/
+**/build/
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# ─── Redis ───────────────────────────────────────────────────────────────────
+dump.rdb
+
+# ─── OS ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDE ─────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ─── Test coverage ───────────────────────────────────────────────────────────
+coverage/
+.nyc_output/

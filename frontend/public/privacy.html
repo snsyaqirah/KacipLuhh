@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — KacipLuhh</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 680px; margin: 0 auto; padding: 2rem; color: #e4e4e7; background: #09090b; line-height: 1.6; }
+    h1 { color: #10b981; }
+    h2 { color: #f4f4f5; margin-top: 2rem; }
+    a { color: #10b981; }
+    p, li { color: #a1a1aa; }
+  </style>
+</head>
+<body>
+  <h1>💬 KacipLuhh — Privacy Policy</h1>
+  <p><em>Last updated: 30 May 2026</em></p>
+
+  <h2>What we collect</h2>
+  <p>KacipLuhh is designed to collect as little as possible:</p>
+  <ul>
+    <li><strong>Nicknames and room names</strong> — you choose these. They are stored temporarily in our server until the room expires (maximum 48 hours).</li>
+    <li><strong>Encrypted messages</strong> — messages are encrypted in your browser using AES-256-GCM before reaching our servers. We store only the ciphertext. We cannot read your messages.</li>
+    <li><strong>Session tokens</strong> — random identifiers that allow you to re-join a room without picking a new nickname. Stored in your browser's localStorage and on our server, both expiring within 48 hours.</li>
+    <li><strong>Timestamps</strong> — when rooms are created and when messages are sent.</li>
+    <li><strong>IP addresses</strong> — we do not log IP addresses in our application. However, our hosting infrastructure (Render.com and Vercel) may log IP addresses as part of their standard server operations. These logs are managed by the respective providers.</li>
+  </ul>
+  <p>We do <strong>not</strong> collect: email addresses, phone numbers, national ID numbers, payment information, or real names.</p>
+
+  <h2>How data is stored and deleted</h2>
+  <p>All room data — including messages, nicknames, and session tokens — is stored in Redis with a time-to-live (TTL). Data automatically deletes when the room expires (6, 12, 24, or 48 hours after creation). There are no manual backups of room content.</p>
+  <p>Your encryption key is stored only in your browser's localStorage. It never reaches our servers.</p>
+
+  <h2>Third-party services</h2>
+  <p>KacipLuhh uses the following third-party services, which may process data outside Malaysia:</p>
+  <ul>
+    <li><strong>Render.com</strong> — hosts our backend server. Subject to <a href="https://render.com/privacy">Render's Privacy Policy</a>.</li>
+    <li><strong>Vercel</strong> — hosts our frontend. Subject to <a href="https://vercel.com/legal/privacy-policy">Vercel's Privacy Policy</a>.</li>
+    <li><strong>Upstash / Redis Cloud</strong> (if applicable) — stores encrypted room data. Subject to the provider's privacy policy.</li>
+  </ul>
+  <p>We do not use analytics services, advertising networks, or AI/LLM APIs.</p>
+
+  <h2>Your rights</h2>
+  <p>Under Malaysia's Personal Data Protection Act 2010 (PDPA), you have the right to access and correct your personal data. Because no accounts are created and all data auto-deletes, there is typically nothing to access or correct. To delete data before it expires, the room owner can close the room manually.</p>
+  <p>For privacy requests, contact: <strong>snsyaqirah@gmail.com</strong></p>
+
+  <h2>Zero-knowledge architecture</h2>
+  <p>KacipLuhh is designed so that we cannot read the content of your messages. The encryption key is embedded in your share link and stored only in your browser. It never reaches our servers. If our servers were compromised, an attacker would only obtain ciphertext that they cannot decrypt.</p>
+
+  <h2>Contact</h2>
+  <p>Privacy or abuse concerns: <strong>snsyaqirah@gmail.com</strong></p>
+  <p><a href="/">← Back to KacipLuhh</a></p>
+</body>
+</html>

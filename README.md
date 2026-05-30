@@ -76,7 +76,7 @@ graph TD
     end
     subgraph Infrastructure
         RD[("Redis (TTL-based storage)")]
-        HOST["Vercel (FE) + Railway (BE)"]
+        HOST["Vercel (FE) + Render (BE)"]
     end
     FE --> BE
     SK --> WS
@@ -94,7 +94,7 @@ graph TD
 | Encryption | Web Crypto API | Built-in browser API, E2EE tanpa library tambahan |
 | Backend | Node.js + Express | Event-driven — perfect untuk WebSocket, same language as FE |
 | Storage | Redis | Purpose-built untuk ephemeral data + TTL auto-expire |
-| Hosting | Vercel + Railway | Free tier cukup untuk MVP, deploy semudah push to main |
+| Hosting | Vercel + Render | Free tier cukup untuk MVP, deploy semudah push to main |
 
 ---
 
@@ -105,7 +105,7 @@ graph TD
 ```mermaid
 graph TD
     A["User / Browser"] --> B["React Frontend (Vercel)"]
-    B -->|"REST (room create/join)"| C["Express Backend (Railway)"]
+    B -->|"REST (room create/join)"| C["Express Backend (Render)"]
     B -->|"WebSocket (chat)"| D["Socket.io Server"]
     C --> E[("Redis (TTL rooms + messages)")]
     D --> E
@@ -558,4 +558,4 @@ kacipluhh/
 
 ## 📄 License
 
-[MIT](LICENSE) © 2025 Luhh Series
+[MIT](LICENSE) © 2026 Luhh Series
