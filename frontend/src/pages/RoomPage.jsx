@@ -325,6 +325,7 @@ export function RoomPage() {
         roomId={roomId}
         onToggleUsers={() => setShowUsers(v => !v)}
         accentHex={accentHex}
+        connected={connected}
       />
 
       <div className="flex-1 flex overflow-hidden">

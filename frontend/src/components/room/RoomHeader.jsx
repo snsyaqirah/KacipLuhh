@@ -11,7 +11,7 @@ function formatCountdown(ms) {
   return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUsers, accentHex = '#10b981' }) {
+export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUsers, accentHex = '#10b981', connected = true }) {
   const { t } = useLang();
   const [timeLeft, setTimeLeft] = useState(room ? room.expiresAt - Date.now() : 0);
   const ownerToken = storage.getOwnerToken(roomId);
@@ -34,7 +34,10 @@ export function RoomHeader({ room, onlineCount, isExpiring, roomId, onToggleUser
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {isExpiring && (
+        {!connected && (
+          <span className="text-xs text-zinc-500 animate-pulse hidden sm:inline">Reconnecting...</span>
+        )}
+        {connected && isExpiring && (
           <span className="text-xs text-amber-400 animate-pulse hidden sm:inline">{t('expiringWarning')}</span>
         )}
         <div className={`font-mono text-sm tabular-nums ${timeLeft < 600000 ? 'text-amber-400' : 'text-zinc-400'}`}>

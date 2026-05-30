@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LangProvider } from './context/LangContext.jsx';
 import { LangToggle } from './components/ui/LangToggle.jsx';
+import { OfflineBanner } from './components/ui/OfflineBanner.jsx';
 import { HomePage } from './pages/HomePage.jsx';
 import { JoinPage } from './pages/JoinPage.jsx';
 import { RoomPage } from './pages/RoomPage.jsx';
@@ -12,6 +13,7 @@ import { AdminPage } from './pages/AdminPage.jsx';
 export default function App() {
   return (
     <LangProvider>
+      <OfflineBanner />
       <div className="fixed top-4 right-4 z-50">
         <LangToggle />
       </div>
